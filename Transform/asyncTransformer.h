@@ -15,6 +15,7 @@
 #include "llvm/IR/Function.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstIterator.h"
+#include <llvm/Support/Debug.h>
 
 
 using namespace llvm;
