@@ -16,7 +16,8 @@
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/IR/InstIterator.h"
 #include <llvm/Support/Debug.h>
-
+#include "llvm/Transforms/Utils/BasicBlockUtils.h"
+#include <stack>
 
 using namespace llvm;
 namespace {
