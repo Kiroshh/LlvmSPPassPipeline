@@ -13,7 +13,6 @@ void LlvmSP::Cost::getCost(Function *FI, int &FunCost) {
     for (BasicBlock &bb : *FI) {
         for (Instruction &i: bb) {
             tempCount++;
-            //TODO:add the cost based on the type of instruction.need some research....(now the total instruction count is taken)
             if (llvm::isa<llvm::CallInst>(i) ||
                 llvm::isa<llvm::InvokeInst>(i)) {
 //                errs() << "Im a Call Instruction!\n";
@@ -37,20 +36,8 @@ void LlvmSP::Cost::getCost(Function *FI, int &FunCost) {
             }
         }
     }
-    //TODO:identify this block has loop & if multiply instructions by loop iterrations before add to the total
-    //FIXME:loop information :errors while tried to calculate loop count
-// if the BB is inside a loop, multiply instructions by the trip count
-//                const llvm::LoopInfo &LI = getAnalysis<llvm::LoopInfo>(*FI);
-//                llvm::ScalarEvolution &SE = getAnalysis<llvm::ScalarEvolution>(*FI);
-//                if (Loop *l = LI.getLoopFor(&bb)) {
-//                    int tripCount = SE.getSmallConstantTripCount(l, nullptr);
-//                    errs() << tripCount << " is the tripCount for this BB\n";
-//                    if (tripCount > 0) {
-//                        // the trip count is known! multiply all our numbers by it
-//                        insCount *=tripCount;
-//
-//                    }
-//                }
+    //TODO:get annotation information in to cost model
+
     FunCost = tempCount;
 //    errs() << FunCost << " : cost\n";
 }
@@ -102,12 +89,11 @@ void LlvmSP::Cost::writeResults(std::map<std::string, int> &results) {
     outfile.close();
 }
 
-//TODO:Implement this method
 bool LlvmSP::Cost::decideTransform(std::map<std::string, int> &results) {
     const int syncAndSpawnCost = 0;  //FIXME:determine this
     int syncCost = 0;
     int asyncCost = 0;
-    //is it either sync or async???? is that a only possibility
+//TODO:determine threshold values
     int maxFunCost = 0;
     for (auto const &x : results) {
         syncCost += x.second;
