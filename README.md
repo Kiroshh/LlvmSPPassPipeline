@@ -12,12 +12,19 @@ Running the pass::
     2.specify functions in input.txt
     
     3.Run the pass with opt->
-        opt -load <libcostAnalysis.so> -cost < ourbitcodefile.bc > /dev/null
+        1.Cost pass
+        opt -load <libcostAnalysis.so> -cost < final.bc > /dev/null
+        2. Transformation pass
+        opt -load ./libTransformer.so -transform < final.bc > optimizedfinal.bc
+
         
         
 For testing::
 
     1.generate call graph ->
         opt -dot-callgraph test.bc
+    2.generate readable bitcode(.ll)
+         llvm-dis optimizedfinal.bc
+
 
     
