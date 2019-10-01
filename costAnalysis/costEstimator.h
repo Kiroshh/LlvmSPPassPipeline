@@ -35,9 +35,9 @@ namespace LlvmSP {
 
         void getCallsList(Function &F, Module &M, int &FunTCost);
 
-        void writeResults(std::map<std::string, int> &results);
+        void writeResults(std::map<std::string, bool > &results);
 
-        bool decideTransform(std::map<std::string, int> &results);
+        void decideTransform(std::map<std::string, int> &results ,  std::map<std::string, bool > &outputList);
 
         void getFunctions(std::vector<std::string> &functions);
 

@@ -78,10 +78,10 @@ void LlvmSP::Cost::getCallsList(Function &F, Module &M, int &FunTCost) {
 }
 
 
-void LlvmSP::Cost::writeResults(std::map<std::string, int> &results) {
+void LlvmSP::Cost::writeResults(std::map<std::string, bool> &results) {
     std::ofstream outfile("results.txt");
-    std::map<std::string, int>::iterator i = results.begin();
-    std::map<std::string, int>::iterator e = results.end();
+    std::map<std::string, bool >::iterator i = results.begin();
+    std::map<std::string, bool >::iterator e = results.end();
     while (i != e) {
         outfile << i->first << ": " << i->second << std::endl;
         i++;
@@ -89,27 +89,18 @@ void LlvmSP::Cost::writeResults(std::map<std::string, int> &results) {
     outfile.close();
 }
 
-bool LlvmSP::Cost::decideTransform(std::map<std::string, int> &results) {
-    const int syncAndSpawnCost = 0;  //FIXME:determine this
-    int syncCost = 0;
-    int asyncCost = 0;
-//TODO:determine threshold values
-    int maxFunCost = 0;
+void LlvmSP::Cost::decideTransform(std::map<std::string, int> &results , std::map<std::string, bool > &outputList) {
+    const int thresholdCost = 0;
+    int cost;
+//TODO:determine final threshold value after experiments
     for (auto const &x : results) {
-        syncCost += x.second;
-        if (x.second > maxFunCost) {
-            maxFunCost = x.second;
+        cost = x.second;
+        if (cost > thresholdCost) { //TODO:  && consider annotations
+            outputList[x.first] = true;
+        } else{
+            outputList[x.first] = false;
         }
     }
-    errs() << "sync cost : " << syncCost;
-    errs() << "\n";
-    asyncCost = maxFunCost + syncAndSpawnCost;
-    errs() << "async cost : " << asyncCost;
-    errs() << "\n";
-    if (syncCost < asyncCost) {
-        return false;
-    }
-    return true;
 }
 
 
@@ -130,6 +121,7 @@ void LlvmSP::Cost::getFunctions(std::vector<std::string> &functions) {
 
 bool LlvmSP::Cost::runOnModule(Module &M) {
     static std::map<std::string, int> costListPrep;
+    static std::map<std::string, bool> resultsList;
     static std::vector<std::string> inputFunctionList;
     getFunctions(inputFunctionList);
     //iterating through functions and find our required functions
@@ -156,8 +148,8 @@ bool LlvmSP::Cost::runOnModule(Module &M) {
         i++;
     }
     errs() << "\n";
-    decideTransform(costListPrep);
-    writeResults(costListPrep);
+    decideTransform(costListPrep , resultsList);
+    writeResults(resultsList);
     costListPrep.clear();
     return false;
 }
