@@ -83,7 +83,7 @@ void LlvmSP::Cost::writeResults(std::map<std::string, bool> &results) {
     std::map<std::string, bool >::iterator i = results.begin();
     std::map<std::string, bool >::iterator e = results.end();
     while (i != e) {
-        outfile << i->first << ": " << i->second << std::endl;
+        outfile << i->first << " " << i->second << std::endl;
         i++;
     }
     outfile.close();

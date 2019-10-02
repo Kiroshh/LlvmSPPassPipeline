@@ -12,13 +12,27 @@ bool Transformer::runOnModule(Module &M) {
     Module::FunctionListType &functions = M.getFunctionList();
 
     //creating constants that capture the function we need to insert
-    FunctionType *functionType = M.getFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv")->getFunctionType();
-    Constant *hook = M.getOrInsertFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv", functionType);
+//    FunctionType *functionType = M.getFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv")->getFunctionType();
+//    Constant *hook = M.getOrInsertFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv", functionType);
 
 
-    FunctionType *functionType2 = M.getFunction("_Z14asyncTransformiPFviEP10ThreadPool")->getFunctionType();
-    Constant *hook2 = M.getOrInsertFunction("_Z14asyncTransformiPFviEP10ThreadPool", functionType2);
+//    FunctionType *functionType2 = M.getFunction("_Z14asyncTransformiPFviEP10ThreadPool")->getFunctionType();
+//    Constant *hook2 = M.getOrInsertFunction("_Z14asyncTransformiPFviEP10ThreadPool", functionType2);
+    Constant *hook;
+    Constant *hook2;
 
+    for (auto& f : M){
+
+        if(f.getName().contains("releaseMeWhenFinished")){
+            FunctionType *functionType = f.getFunctionType();
+            hook = M.getOrInsertFunction(f.getName(), functionType);
+        }
+
+        if (f.getName().contains("syncTransform")) {
+            FunctionType *functionType2 = f.getFunctionType();
+            hook2 = M.getOrInsertFunction(f.getName(), functionType2);
+        }
+        }
     //vector to grab thread pool reference
     std::vector<Value *> args;
     std::vector<Value *> argsT;

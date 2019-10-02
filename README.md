@@ -9,13 +9,13 @@ Running the pass::
 
     1.Build the source 
     
-    2.specify functions in input.txt
+    2.specify task functions in input.txt
     
     3.Run the pass with opt->
         1.Cost pass
         opt -load <libcostAnalysis.so> -cost < final.bc > /dev/null
         2. Transformation pass
-        opt -load ./libTransformer.so -transform < final.bc > optimizedfinal.bc
+        opt -load <libTransformer.so> -transform < final.bc > optimizedfinal.bc
 
         
         
