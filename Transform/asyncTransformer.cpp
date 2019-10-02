@@ -6,33 +6,39 @@
 
 char Transformer::ID = 0;
 
+void Transformer::getFunctions(std::vector<std::string> &functions) {
+    std::ifstream inFile;
+    inFile.open("results.txt");
+    std::string funcName;
+    int result;
+    if (!inFile) {
+        errs() << "Unable to open file";
+        exit(1);
+    }
+    while (inFile >> funcName >> result) {
+        if (result == 1) {
+            functions.push_back(funcName);
+        }
+    }
+    inFile.close();
+}
+
 
 bool Transformer::runOnModule(Module &M) {
+
+    static std::vector<std::string> resultFunctionList;
+    getFunctions(resultFunctionList);
 
     Module::FunctionListType &functions = M.getFunctionList();
 
     //creating constants that capture the function we need to insert
-//    FunctionType *functionType = M.getFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv")->getFunctionType();
-//    Constant *hook = M.getOrInsertFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv", functionType);
+    FunctionType *functionType = M.getFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv")->getFunctionType();
+    Constant *hook = M.getOrInsertFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv", functionType);
 
+    //TODO: get syncTransform mangled name from analysis pass
+    FunctionType *functionType2 = M.getFunction("_Z14asyncTransformiPFviEP10ThreadPool")->getFunctionType();
+    Constant *hook2 = M.getOrInsertFunction("_Z14asyncTransformiPFviEP10ThreadPool", functionType2);
 
-//    FunctionType *functionType2 = M.getFunction("_Z14asyncTransformiPFviEP10ThreadPool")->getFunctionType();
-//    Constant *hook2 = M.getOrInsertFunction("_Z14asyncTransformiPFviEP10ThreadPool", functionType2);
-    Constant *hook;
-    Constant *hook2;
-
-    for (auto& f : M){
-
-        if(f.getName().contains("releaseMeWhenFinished")){
-            FunctionType *functionType = f.getFunctionType();
-            hook = M.getOrInsertFunction(f.getName(), functionType);
-        }
-
-        if (f.getName().contains("syncTransform")) {
-            FunctionType *functionType2 = f.getFunctionType();
-            hook2 = M.getOrInsertFunction(f.getName(), functionType2);
-        }
-        }
     //vector to grab thread pool reference
     std::vector<Value *> args;
     std::vector<Value *> argsT;
@@ -101,7 +107,7 @@ bool Transformer::runOnModule(Module &M) {
 
                             delInstructions.push(dyn_cast<Instruction>(&i));
                         }
-
+                        //TODO: get asyncTransform mangled name from analysis pass
                         if (f->getName() ==
                             "_Z13syncTransformiPFviE") {
                             std::vector<Value *> argsAsync;
@@ -111,8 +117,10 @@ bool Transformer::runOnModule(Module &M) {
                             for (size_t x = 0; x < i.getNumOperands(); ++x) {
                                 dbgs() << i.getOperand(x)->getType() << "\n";
 //                                dbgs() << i.getOperand(x) << "\n";
-                                if (i.getOperand(x)->getName() == "_Z11writeToFilei") {
+                                if (std::find(resultFunctionList.begin(), resultFunctionList.end(),
+                                              i.getOperand(x)->getName()) != resultFunctionList.end()) {
                                     errs() << "this is what we need to check \n";
+                                    dbgs() << i.getOperand(x)->getName() << "\n";
                                     isSelected = true;
                                     //have to generalise this for all task-functions in the config file
                                 }
@@ -121,13 +129,14 @@ bool Transformer::runOnModule(Module &M) {
                             }
                             argsAsync.pop_back();
                             argsAsync.insert(argsAsync.end(), args.begin(), args.end());
-                            //TODO:if isselected is true do the transformations
 
                             //creating and inserting function call
-                            CallInst::Create(hook2, argsAsync)->insertBefore(&i);
-                            errs() << "async transformation done \n";
+                            if (isSelected) {
+                                CallInst::Create(hook2, argsAsync)->insertBefore(&i);
+                                errs() << "async transformation done \n";
 
-                            delInstructions.push(dyn_cast<Instruction>(&i));
+                                delInstructions.push(dyn_cast<Instruction>(&i));
+                            }
                         }
                     }
                 }
