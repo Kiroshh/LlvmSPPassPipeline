@@ -16,8 +16,8 @@ bool Transformer::runOnModule(Module &M) {
     Constant *hook = M.getOrInsertFunction("_ZN10ThreadPool21releaseMeWhenFinishedEv", functionType);
 
 
-    FunctionType *functionType2 = M.getFunction("_Z14asyncTransformiPFviEP10ThreadPool")->getFunctionType();
-    Constant *hook2 = M.getOrInsertFunction("_Z14asyncTransformiPFviEP10ThreadPool", functionType2);
+    FunctionType *functionType2 = M.getFunction("_Z12asyncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_EP10ThreadPool")->getFunctionType();
+    Constant *hook2 = M.getOrInsertFunction("_Z12asyncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_EP10ThreadPool", functionType2);
 
     //vector to grab thread pool reference
     std::vector<Value *> args;
@@ -44,15 +44,17 @@ bool Transformer::runOnModule(Module &M) {
                             for (size_t x = 0; x < i.getNumOperands(); ++x) {
                                 errs() << i.getNumOperands() << "first\n";
                                 dbgs() << i.getOperand(x)->getType() << "\n";
-                                dbgs() << i << "\n";
+//                                dbgs() << i << "\n";
                                 dbgs() << i.getOperand(x) << "\n";
                                 args.push_back(i.getOperand(x));
-                                dbgs() << x << "\n";
+//                                dbgs() << x << "\n";
 
                             }
                             args.pop_back();
-                        }
+                            args.pop_back();
+                            args.pop_back();
 
+                        }
 
                     }
                 }
@@ -79,17 +81,17 @@ bool Transformer::runOnModule(Module &M) {
                     Value *called = cs.getCalledValue()->stripPointerCasts();
                     if (Function *f = dyn_cast<Function>(called)) {
 
+//                        if (f->getName() ==
+//                            "_Z22keepPlaceForThreadJoinv") {
+//
+//                            CallInst::Create(hook, args)->insertBefore(&i);
+//                            errs() << "Successfully added the thread join instructions\n";
+//
+//                            delInstructions.push(dyn_cast<Instruction>(&i));
+//                        }
+
                         if (f->getName() ==
-                            "_Z22keepPlaceForThreadJoinv") {
-
-                            CallInst::Create(hook, args)->insertBefore(&i);
-                            errs() << "Successfully added the thread join instructions\n";
-
-                            delInstructions.push(dyn_cast<Instruction>(&i));
-                        }
-
-                        if (f->getName() ==
-                            "_Z13syncTransformiPFviE") {
+                            "_Z11syncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_E") {
                             std::vector<Value *> argsAsync;
                             bool isSelected = false;
 
@@ -97,7 +99,7 @@ bool Transformer::runOnModule(Module &M) {
                             for (size_t x = 0; x < i.getNumOperands(); ++x) {
                                 dbgs() << i.getOperand(x)->getType() << "\n";
 //                                dbgs() << i.getOperand(x) << "\n";
-                                if (i.getOperand(x)->getName() == "_Z11writeToFilei") {
+                                if (i.getOperand(x)->getName() == "findCharInWord") {
                                     errs() << "this is what we need to check \n";
                                     isSelected = true;
                                     //have to generalise this for all task-functions in the config file
@@ -105,7 +107,7 @@ bool Transformer::runOnModule(Module &M) {
                                 argsAsync.push_back(i.getOperand(x));
 
                             }
-                            argsAsync.pop_back();
+//                            argsAsync.pop_back();
                             argsAsync.insert(argsAsync.end(), args.begin(), args.end());
                             //TODO:if isselected is true do the transformations
 
