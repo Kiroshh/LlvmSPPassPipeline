@@ -18,6 +18,7 @@
 #include <llvm/Support/Debug.h>
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include <stack>
+#include <fstream>
 
 using namespace llvm;
 namespace {
@@ -25,7 +26,7 @@ namespace {
         static char ID;
 
         Transformer() : ModulePass(ID) {}
-
+        void getFunctions(std::vector<std::string> &functions);
         bool runOnModule(Module &M) override;
 
 

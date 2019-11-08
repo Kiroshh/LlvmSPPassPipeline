@@ -6,8 +6,27 @@
 
 char Transformer::ID = 0;
 
+void Transformer::getFunctions(std::vector<std::string> &functions) {
+    std::ifstream inFile;
+    inFile.open("results.txt");
+    std::string funcName;
+    int result;
+    if (!inFile) {
+        errs() << "Unable to open file";
+        exit(1);
+    }
+    while (inFile >> funcName >> result) {
+        if (result == 1) {
+            functions.push_back(funcName);
+        }
+    }
+    inFile.close();
+}
 
 bool Transformer::runOnModule(Module &M) {
+
+    static std::vector<std::string> resultFunctionList;
+    getFunctions(resultFunctionList);
 
     Module::FunctionListType &functions = M.getFunctionList();
 
@@ -17,13 +36,17 @@ bool Transformer::runOnModule(Module &M) {
 
 
     FunctionType *functionType2 = M.getFunction(
-            "_Z12asyncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_EP10ThreadPool")->getFunctionType();
+            "_Z11syncExecuteiNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_E")->getFunctionType();
     Constant *hook2 = M.getOrInsertFunction(
-            "_Z12asyncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_EP10ThreadPool", functionType2);
+            "_Z11syncExecuteiNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_E", functionType2);
 
     //vector to grab thread pool reference
     std::vector<Value *> args;
     std::vector<Value *> argsT;
+
+    //stack to keep the instructions needed to be deleted
+    std::stack<Instruction *> delInstructions;
+    Instruction *pi;
 
     for (Module::FunctionListType::iterator FI = functions.begin(), FE = functions.end(); FI != FE; ++FI) {
         if (FI->getName() == "main") {
@@ -42,11 +65,14 @@ bool Transformer::runOnModule(Module &M) {
                         if (f->getName() ==
                             "_ZN10ThreadPool20setThreadPoolWorkingEv") {
 
+
+                            errs() << "setting tpool instruction";
+
                             //collect the necessary arguments
                             for (size_t x = 0; x < i.getNumOperands(); ++x) {
 //                                errs() << i.getNumOperands() << "first\n";
 //                                dbgs() << i.getOperand(x)->getType() << "\n";
-////                                dbgs() << i << "\n";
+//                                dbgs() << i << "\n";
 //                                dbgs() << i.getOperand(x) << "\n";
                                 args.push_back(i.getOperand(x));
 //                                dbgs() << x << "\n";
@@ -57,7 +83,19 @@ bool Transformer::runOnModule(Module &M) {
                             args.pop_back();
 
                         }
+                        if (f->getName() ==
+                            "_ZN10ThreadPool21releaseMeWhenFinishedEv") {
 
+                            errs() << "release instructions";
+
+                            delInstructions.push(dyn_cast<Instruction>(&i));
+
+                        }
+                        if (f->getName() ==
+                            "_Z22keepPlaceForThreadJoinv") {
+                            pi = dyn_cast<Instruction>(&i);
+
+                        }
                     }
                 }
             }
@@ -66,8 +104,8 @@ bool Transformer::runOnModule(Module &M) {
 
     //lets insert necessary call instructions
 
-    //stack to keep the instructions needed to be deleted
-    std::stack<Instruction *> delInstructions;
+    bool isSelected = false;
+
 
     for (Module::FunctionListType::iterator FI = functions.begin(), FE = functions.end(); FI != FE; ++FI) {
 
@@ -83,30 +121,20 @@ bool Transformer::runOnModule(Module &M) {
                     Value *called = cs.getCalledValue()->stripPointerCasts();
                     if (Function *f = dyn_cast<Function>(called)) {
 
-//                        if (f->getName() ==
-//                            "_Z22keepPlaceForThreadJoinv") {
-//
-//                            CallInst::Create(hook, args)->insertBefore(&i);
-//                            errs() << "Successfully added the thread join instructions\n";
-//
-//                            delInstructions.push(dyn_cast<Instruction>(&i));
-//                        }
-
                         if (f->getName() ==
-                            "_Z11syncExecuteNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_E") {
+                            "_Z12asyncExecuteiNSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEEPFvS4_EP10ThreadPool") {
                             std::vector<Value *> argsAsync;
-                            bool isSelected = false;
 
                             //collect the necessary arguments for our function call
                             for (size_t x = 0; x < i.getNumOperands(); ++x) {
                                 dbgs() << i.getOperand(x)->getType() << "\n";
-                                dbgs() << i<< "\n";
+                                dbgs() << i << "\n";
 
                                 dbgs() << i.getOperand(x) << "\n";
-                                if (i.getOperand(x)->getName() == "findCharInWord") {
+                                if (std::find(resultFunctionList.begin(), resultFunctionList.end(),
+                                              i.getOperand(x)->getName()) != resultFunctionList.end()) {
                                     errs() << "this is what we need to check \n";
                                     isSelected = true;
-                                    //have to generalise this for all task-functions in the config file
                                 }
                                 argsAsync.push_back(i.getOperand(x));
 
@@ -114,16 +142,31 @@ bool Transformer::runOnModule(Module &M) {
                             argsAsync.pop_back();
                             argsAsync.pop_back();
                             argsAsync.pop_back();
+                            argsAsync.pop_back();
 
 
-                            argsAsync.insert(argsAsync.end(), args.begin(), args.end());
-                            //TODO:if isselected is true do the transformations
+                            if (!isSelected) {
+                                //creating and inserting function call
+                                CallInst::Create(hook2, argsAsync)->insertBefore(&i);
+                                //change the operand to 0
+                                Constant *zero = ConstantInt::get(llvm::Type::getInt32Ty(f->getContext()), 0);
+                                errs() << i;
+                                i.setOperand(0, zero);
+                                errs() << i;
 
-                            //creating and inserting function call
-                            CallInst::Create(hook2, argsAsync)->insertBefore(&i);
+
+                            }
+
                             errs() << "async transformation done \n";
 
-                            delInstructions.push(dyn_cast<Instruction>(&i));
+                        }
+                        if (f->getName() ==
+                            "_Z22keepPlaceForThreadJoinv") {
+                            if (isSelected) {
+                                CallInst::Create(hook, args)->insertBefore(&i);
+                                errs() << "Successfully added the instruction\n";
+                            }
+
                         }
                     }
                 }
@@ -133,12 +176,16 @@ bool Transformer::runOnModule(Module &M) {
 
     Instruction *tmp = NULL;
     errs() << "Lets Delete obsolete instructions:\n";
-
-//    while (!delInstructions.empty()) {
-//        tmp = delInstructions.top();
-//        delInstructions.pop();
-//        dbgs() << tmp << "\n";
-//        tmp->eraseFromParent();
+//    if (isSelected) {
+//        while (!delInstructions.empty()) {
+//            tmp = delInstructions.top();
+//            delInstructions.pop();
+//            dbgs() << tmp << "\n";
+//            BasicBlock::iterator ii(pi);
+//
+//            ReplaceInstWithInst(tmp->getParent()->getInstList(), ii,
+//            pi);
+//        }
 //    }
 
     return true;
